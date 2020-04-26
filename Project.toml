@@ -3,6 +3,10 @@ uuid = "ecebb631-7de8-4cb0-a426-2a4a46a4490f"
 authors = ["Jeremiah Lewis"]
 version = "0.1.0"
 
+[deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+
 [compat]
 julia = "1.4"
 
