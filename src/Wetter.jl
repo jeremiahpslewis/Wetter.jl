@@ -47,10 +47,10 @@ end
 
 function covert_csv_to_dataframe(file_name)
     file_name = "data/" * file_name
-    global z = ZipFile.Reader(file_name)
+    global z = ZipFile.Reader(file_name) # Declare as global variable to avoid bug: https://github.com/fhs/ZipFile.jl/issues/14
     txt_file = filter(x->endswith(x.name, ".txt"), z.files)[1]
 
-    df = CSV.File(txt_file, delim = ";", missingstrings = ["-999"], types = Dict(2 => String)) |> DataFrame!
+    df = CSV.File(txt_file, delim = ";", missingstrings = ["-999"], types = Dict(2 => String), normalizenames = true) |> DataFrame!
 
 
 
@@ -58,24 +58,26 @@ function covert_csv_to_dataframe(file_name)
         date = DateTime(String(date_ex), date_format)
         if year(date) < 2000
             time_zone = tz"Europe/Berlin"
+
+            date_with_tz = try
+                DateTime(ZonedDateTime(date, time_zone), UTC)
+            catch e
+                if isa(e, AmbiguousTimeError)
+                    missing
+                end
+            end
         else
-            time_zone = tz"UTC"
+            # time_zone = tz"UTC"
+            return date
         end
 
-        date_with_tz = try
-            ZonedDateTime(date, time_zone)
-        catch e
-            if isa(e, AmbiguousTimeError)
-                missing
-            end
-        end
 
         return date_with_tz
 
     end
     df[!, :obs_date_utc] = todate.(df[!, :MESS_DATUM])
     rename!(df, Dict(:STATIONS_ID => "station_id", :QN => "qn", :TT_10 => "tt_10", :MESS_DATUM => "raw_date_string"))
-    df = df[!, [:station_id, :QN, :tt_10, :obs_date_utc, :raw_date_string]]
+    df = df[!, [:station_id, :qn, :tt_10, :obs_date_utc, :raw_date_string]]
     return df
 end
 
@@ -91,13 +93,13 @@ file_list = readdir("data")
 file_list = file_list[1:10]
 
 df_list = covert_csv_to_dataframe.(file_list)
-
+# df_list[3]
 vcat(df_list...)
 
-df_list[3]
-reduce(df_list)
+# df_list[3]
+# reduce(df_list)
 
-df[!, [:STATIONS_ID]]
+# df[!, [:STATIONS_ID]]
 
 
 # Next steps:
