@@ -47,10 +47,10 @@ end
 
 function covert_csv_to_dataframe(file_name)
     file_name = "data/" * file_name
-    z = ZipFile.Reader(file_name)
+    global z = ZipFile.Reader(file_name)
     txt_file = filter(x->endswith(x.name, ".txt"), z.files)[1]
 
-    df = CSV.File(txt_file, delim = ";", skipto = 5, missingstrings = ["-999"], types = Dict(2 => String)) |> DataFrame!
+    df = CSV.File(txt_file, delim = ";", missingstrings = ["-999"], types = Dict(2 => String)) |> DataFrame!
 
 
 
@@ -61,12 +61,21 @@ function covert_csv_to_dataframe(file_name)
         else
             time_zone = tz"UTC"
         end
-        return ZonedDateTime(date, time_zone)
+
+        date_with_tz = try
+            ZonedDateTime(date, time_zone)
+        catch e
+            if isa(e, AmbiguousTimeError)
+                missing
+            end
+        end
+
+        return date_with_tz
+
     end
-
-
-    df[:obs_date_utc] = todate.(df[!, :MESS_DATUM])
-
+    df[!, :obs_date_utc] = todate.(df[!, :MESS_DATUM])
+    rename!(df, Dict(:STATIONS_ID => "station_id", :QN => "qn", :TT_10 => "tt_10", :MESS_DATUM => "raw_date_string"))
+    df = df[!, [:station_id, :QN, :tt_10, :obs_date_utc, :raw_date_string]]
     return df
 end
 
@@ -80,7 +89,15 @@ download_data_file.(file_list)
 # Import File as Data Table
 file_list = readdir("data")
 file_list = file_list[1:10]
+
 df_list = covert_csv_to_dataframe.(file_list)
+
+vcat(df_list...)
+
+df_list[3]
+reduce(df_list)
+
+df[!, [:STATIONS_ID]]
 
 
 # Next steps:
