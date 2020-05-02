@@ -64,9 +64,9 @@ function fetch_data_file_list()
 end
 
 # Given filename, download file
-function download_data_file(file_name)
+function download_data_file(file_name, data_dir_path)
     url = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/historical/"
-    r = RemoteFile(url * file_name, file = file_name, dir = "data/zip")
+    r = RemoteFile(url * file_name, file = file_name, dir = data_dir_path)
     download(r)
 end
 
@@ -111,12 +111,13 @@ end
 
 
 function download_and_export_data(station_id, file_list)
+    tmp_dir_path = mktempdir(parent = tempdir(); prefix = "jl_", cleanup = true)
     # remove raw data directory (zip dir...)
-    download_data_file.(file_list)
+    download_data_file.(file_list, (tmp_dir_path,))
     # Import File as Data Table
-    file_list = readdir("data/zip")
+    file_list = readdir(tmp_dir_path)
     file_list = filter(x->occursin("_TU_" * station_id, x), file_list)
-    file_list = "data/zip/" .* file_list
+    file_list = tmp_dir_path .* file_list
     df_list = covert_csv_to_dataframe.(file_list)
     df_full = vcat(df_list...)
 
@@ -124,6 +125,7 @@ function download_and_export_data(station_id, file_list)
     @assert mean(df_full.obs_date_utc .== "NA") < 0.001
 
     write_df_to_gzip_csv(df_full, "data/csv/station_id_" * String(station_id) * ".csv.gz")
+    rm(tmp_dir_path, recursive = true, force = true)
 end
 
 
@@ -146,10 +148,7 @@ function download_and_export_data()
     station_ids = unique(file_df.station_id)
     # station_ids = station_ids[1:3]
     for station_id in station_ids
-        rm("data/zip", recursive = true, force = true)
-        mkdir("data/zip")
-        file_list_station = filter(x->occursin("_TU_" * station_id, x), file_df.file_name)
-        download_and_export_data(station_id, file_list_station)
+        download_and_export_data(station_id, file_df.file_name)
     end
 end
 
