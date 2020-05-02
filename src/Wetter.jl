@@ -71,7 +71,6 @@ function download_data_file(file_name)
 end
 
 function covert_csv_to_dataframe(file_name)
-    file_name = "data/zip/" * file_name
     global z = ZipFile.Reader(file_name) # Declare as global variable to avoid bug: https://github.com/fhs/ZipFile.jl/issues/14
     txt_file = filter(x->endswith(x.name, ".txt"), z.files)[1]
 
@@ -83,7 +82,7 @@ function covert_csv_to_dataframe(file_name)
     function todate(date_ex)
         date = DateTime(String(date_ex), date_format)
 
-        # Post-2000 timestamps are in UTC, so all is well in Y2K
+        # Post-2000 timestamps are in UTC, so all is well starting Y2K, otherwise need to tz convert
         if year(date) < 2000
             date = try
                 DateTime(ZonedDateTime(date, tz"Europe/Berlin"), UTC)
@@ -117,6 +116,7 @@ function download_and_export_data(station_id, file_list)
     # Import File as Data Table
     file_list = readdir("data/zip")
     file_list = filter(x->occursin("_TU_" * station_id, x), file_list)
+    file_list = "data/zip/" .* file_list
     df_list = covert_csv_to_dataframe.(file_list)
     df_full = vcat(df_list...)
 
@@ -144,7 +144,7 @@ function download_and_export_data()
     # 1. filter file list on station_id...
 
     station_ids = unique(file_df.station_id)
-    station_ids = station_ids[1:3]
+    # station_ids = station_ids[1:3]
     for station_id in station_ids
         rm("data/zip", recursive = true, force = true)
         mkdir("data/zip")
