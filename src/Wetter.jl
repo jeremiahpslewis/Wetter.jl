@@ -29,7 +29,7 @@ const date_format = Dates.DateFormat("yyyymmddHHMM:00:000")
 
 
 function write_df_to_gzip_csv(df, filename)
-    open(GzipCompressorStream, "table.csv.gz", "w") do stream
+    open(GzipCompressorStream, filename, "w") do stream
         CSV.write(stream, df)
     end
 end
@@ -116,13 +116,14 @@ function download_and_export_data(station_id, file_list)
     download_data_file.(file_list)
     # Import File as Data Table
     file_list = readdir("data/zip")
+    file_list = filter(x->occursin("_TU_" * station_id, x), file_list)
     df_list = covert_csv_to_dataframe.(file_list)
     df_full = vcat(df_list...)
 
     # Test that the number of NA vals is less than 0.1%
     @assert mean(df_full.obs_date_utc .== "NA") < 0.001
 
-    write_df_to_gzip_csv(df_full, "data/csv/station_id" * String(station_id) * ".csv.gz")
+    write_df_to_gzip_csv(df_full, "data/csv/station_id_" * String(station_id) * ".csv.gz")
 end
 
 
