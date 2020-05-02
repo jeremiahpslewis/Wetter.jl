@@ -4,6 +4,7 @@ greet() = print("Hello World!")
 
 end # module
 
+using Statistics
 using RemoteFiles
 using HTTP
 using CSV
@@ -56,25 +57,28 @@ function covert_csv_to_dataframe(file_name)
 
     function todate(date_ex)
         date = DateTime(String(date_ex), date_format)
-        if year(date) < 2000
-            time_zone = tz"Europe/Berlin"
 
-            date_with_tz = try
-                DateTime(ZonedDateTime(date, time_zone), UTC)
+        # Post-2000 timestamps are in UTC, so all is well in Y2K
+        if year(date) < 2000
+            date = try
+                DateTime(ZonedDateTime(date, tz"Europe/Berlin"), UTC)
             catch e
-                if isa(e, AmbiguousTimeError)
+                if isa(e, AmbiguousTimeError) || isa(e, NonExistentTimeError)
                     missing
+                else
+                    e
                 end
             end
-        else
-            # time_zone = tz"UTC"
-            return date
         end
 
-
-        return date_with_tz
-
+        # Return timestamp or "NA"-string
+        if ismissing(date)
+            return "NA"
+        else
+            return Dates.format(date, "yyyy-mm-dd HH:MM")
+        end
     end
+
     df[!, :obs_date_utc] = todate.(df[!, :MESS_DATUM])
     rename!(df, Dict(:STATIONS_ID => "station_id", :QN => "qn", :TT_10 => "tt_10", :MESS_DATUM => "raw_date_string"))
     df = df[!, [:station_id, :qn, :tt_10, :obs_date_utc, :raw_date_string]]
@@ -84,17 +88,21 @@ end
 
 # Download Data
 file_list = fetch_data_file_list()
-file_list = file_list[1:10]
+file_list = file_list[1:100]
 download_data_file.(file_list)
 
 
 # Import File as Data Table
 file_list = readdir("data")
-file_list = file_list[1:10]
+file_list = file_list[1:100]
 
 df_list = covert_csv_to_dataframe.(file_list)
 # df_list[3]
-vcat(df_list...)
+df_full = vcat(df_list...)
+
+# Test that the number of NA vals is less than 0.1%
+@assert mean(df_full.obs_date_utc .== "NA") < 0.001
+
 
 # df_list[3]
 # reduce(df_list)
@@ -109,3 +117,16 @@ vcat(df_list...)
 # Subset columns and rename
 # Concat all files
 # Export file as zipped CSV
+
+
+# for item = df_full[!, :obs_date_utc]
+#     try
+#         Dates.format(item, "yyyy-mm-dd HH:MM")
+#     catch
+#         println(item)
+#     end
+# end
+
+
+# df_full[df_full.obs_date_utc .== nothing, :raw_date_string]
+df_full
