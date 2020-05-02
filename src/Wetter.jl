@@ -87,9 +87,9 @@ end
 
 
 # Download Data
-file_list = fetch_data_file_list()
-file_list = file_list[1:100]
-download_data_file.(file_list)
+# file_list = fetch_data_file_list()
+# file_list = file_list[1:100]
+# download_data_file.(file_list)
 
 
 # Import File as Data Table
@@ -129,4 +129,4 @@ df_full = vcat(df_list...)
 
 
 # df_full[df_full.obs_date_utc .== nothing, :raw_date_string]
-df_full
+# df_full
