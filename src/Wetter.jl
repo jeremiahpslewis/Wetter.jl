@@ -15,6 +15,15 @@ using Dates
 using Gumbo
 using CodecZlib
 
+
+# Steps:
+# Import file as data table
+# Document functions
+# Split up Into functions
+# Subset columns and rename
+# Concat all files
+# Export file as zipped CSV
+
 # Compile date format for faster parsing
 const date_format = Dates.DateFormat("yyyymmddHHMM:00:000")
 
@@ -145,11 +154,3 @@ end
 
 
 download_and_export_data()
-
-# Next steps:
-# Import file as data table
-# Document functions
-# Split up Into functions
-# Subset columns and rename
-# Concat all files
-# Export file as zipped CSV
