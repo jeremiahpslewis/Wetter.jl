@@ -26,6 +26,10 @@ function write_df_to_gzip_csv(df, filename)
 end
 
 
+function get_station_id(file_name)
+    m = match(r"10minutenwerte_TU_([0-9]+)_.*", file_name)
+    return String(m.captures[1])
+end
 
 # Fetch list of available data files
 function fetch_data_file_list()
@@ -92,7 +96,7 @@ function covert_csv_to_dataframe(file_name)
     end
 
     df[!, :obs_date_utc] = todate.(df[!, :MESS_DATUM])
-    rename!(df, Dict(:STATIONS_ID => "station_id", :QN => "qn", :TT_10 => "tt_10")) # , :MESS_DATUM => "raw_date_string")) #TODO: Figure out how to convert ambiguous and nonexistent timestamps...
+    rename!(df, Dict(:STATIONS_ID => "station_id", :QN => "qn", :TT_10 => "tt_10", :MESS_DATUM => "raw_date_string")) # TODO: Figure out how to convert ambiguous and nonexistent timestamps...
     df = df[!, [:station_id, :qn, :tt_10, :obs_date_utc, :raw_date_string]]
     return df
 end
@@ -118,16 +122,29 @@ function download_and_export_data()
     # Download Data
     file_list = fetch_data_file_list()
 
+    rm("data/csv", recursive = true, force = true)
     mkdir("data/csv")
 
+    file_list = fetch_data_file_list()
+
+    file_df = DataFrame(file_name = file_list, station_id = get_station_id.(file_list))
+
+
+
     # 1. filter file list on station_id...
-    file_list = file_list[1:10]
-    for station_id_obj in file_list
-        file_list_station = filter()# filter file list
-        download_and_export_data(station_id_obj.station_id, station_id_obj.file_list)
+
+    station_ids = unique(file_df.station_id)
+    station_ids = station_ids[1:3]
+    for station_id in station_ids
+        rm("data/zip", recursive = true, force = true)
+        mkdir("data/zip")
+        file_list_station = filter(x->occursin("_TU_" * station_id, x), file_df.file_name)
+        download_and_export_data(station_id, file_list_station)
     end
 end
 
+
+download_and_export_data()
 
 # Next steps:
 # Import file as data table
