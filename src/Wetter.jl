@@ -87,9 +87,9 @@ end
 
 
 # Download Data
-# file_list = fetch_data_file_list()
-# file_list = file_list[1:100]
-# download_data_file.(file_list)
+file_list = fetch_data_file_list()
+file_list = file_list[1:10]
+download_data_file.(file_list)
 
 
 # Import File as Data Table
