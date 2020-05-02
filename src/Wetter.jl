@@ -52,7 +52,7 @@ function covert_csv_to_dataframe(file_name)
     txt_file = filter(x->endswith(x.name, ".txt"), z.files)[1]
 
     df = CSV.File(txt_file, delim = ";", missingstrings = ["-999"], types = Dict(2 => String), normalizenames = true) |> DataFrame!
-
+    close(z)
 
 
     function todate(date_ex)
