@@ -30,7 +30,7 @@ const date_format = Dates.DateFormat("yyyymmddHHMM:00:000")
 
 function write_df_to_gzip_csv(df, filename)
     open(GzipCompressorStream, "table.csv.gz", "w") do stream
-        CSV.write(stream, df_full)
+        CSV.write(stream, df)
     end
 end
 
