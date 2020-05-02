@@ -28,3 +28,7 @@ docs/site/
 # environment.
 Manifest.toml
 *.zip
+
+*.parq
+*.csv
+*.gz
