@@ -139,7 +139,7 @@ function download_and_export_data()
     station_ids = unique(file_df.station_id)
 
     # station_ids = station_ids[1:3]
-    map(x->download_and_export_data(x, file_df.file_name), station_ids; ntasks = 5)
+    map(x->download_and_export_data(x, file_df.file_name), station_ids)
 end
 
 
