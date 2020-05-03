@@ -32,3 +32,4 @@ Manifest.toml
 *.parq
 *.csv
 *.gz
+*.txt

@@ -68,7 +68,7 @@ function download_data_file(file_name, data_dir_path)
     r = RemoteFile(url * file_name, file = file_name, dir = data_dir_path)
     download(r)
     file_path = joinpath(data_dir_path, file_name)
-    run(`unzip -o $file_path`) # Unzip file using command line
+    run(`unzip -o $file_path -d $data_dir_path`) # Unzip file using command line
 
     rm(file_path)
 end
@@ -132,10 +132,6 @@ function download_and_export_data()
     file_list = fetch_data_file_list()
 
     file_df = DataFrame(file_name = file_list, station_id = get_station_id.(file_list))
-
-
-
-    # 1. filter file list on station_id...
 
     station_ids = unique(file_df.station_id)
     # station_ids = station_ids[1:3]
