@@ -8,7 +8,6 @@ using Statistics
 using RemoteFiles
 using HTTP
 using CSV
-using ZipFile
 using DataFrames
 using TimeZones
 using Dates
@@ -68,14 +67,14 @@ function download_data_file(file_name, data_dir_path)
     url = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/historical/"
     r = RemoteFile(url * file_name, file = file_name, dir = data_dir_path)
     download(r)
+    file_path = joinpath(data_dir_path, file_name)
+    run(`unzip -o $file_path`) # Unzip file using command line
+
+    rm(file_path)
 end
 
 function covert_csv_to_dataframe(file_name)
-    global z = ZipFile.Reader(file_name) # Declare as global variable to avoid bug: https://github.com/fhs/ZipFile.jl/issues/14
-    txt_file = filter(x->endswith(x.name, ".txt"), z.files)[1]
-
-    df = CSV.File(txt_file, delim = ";", missingstrings = ["-999"], types = Dict(2 => String), normalizenames = true, select = [:STATIONS_ID, :QN, :TT_10, :MESS_DATUM]) |> DataFrame!
-    close(z)
+    df = CSV.File(file_name, delim = ";", missingstrings = ["-999"], types = Dict(2 => String), normalizenames = true, select = [:STATIONS_ID, :QN, :TT_10, :MESS_DATUM]) |> DataFrame!
 
     function todate(date_ex)
         date = DateTime(String(date_ex), date_format)
