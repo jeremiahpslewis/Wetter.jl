@@ -121,7 +121,7 @@ function download_and_export_data(station_id, file_list)
 
     # Test that the number of NA vals is less than 0.1%
     @assert mean(df_full.obs_date_utc .== "NA") < 0.001
-
+    mkpath("data/csv")
     write_df_to_gzip_csv(df_full, "data/csv/station_id_" * String(station_id) * ".csv.gz")
     rm(tmp_dir_path, recursive = true, force = true)
 end
