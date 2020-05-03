@@ -4,6 +4,10 @@ greet() = print("Hello World!")
 
 end # module
 
+# using Pkg
+
+# Pkg.activate(".")
+
 using Statistics
 using RemoteFiles
 using HTTP
@@ -13,7 +17,6 @@ using TimeZones
 using Dates
 using Gumbo
 using CodecZlib
-
 
 # Steps:
 # Import file as data table
@@ -40,7 +43,7 @@ function get_station_id(file_name)
 end
 
 # Fetch list of available data files
-function fetch_data_file_list()
+function fetch_data_file_df()
     url = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/historical/"
     r = HTTP.request("GET", url)
 
@@ -59,7 +62,9 @@ function fetch_data_file_list()
         end
     end
 
-    return file_list
+    file_df = DataFrame(file_name = file_list, station_id = get_station_id.(file_list))
+
+    return file_df
 end
 
 # Given filename, download file
@@ -129,15 +134,12 @@ end
 function download_and_export_data()
 
     # Download Data
-    file_list = fetch_data_file_list()
-
-    file_df = DataFrame(file_name = file_list, station_id = get_station_id.(file_list))
+    file_df = fetch_data_file_df()
 
     station_ids = unique(file_df.station_id)
+
     # station_ids = station_ids[1:3]
-    for station_id in station_ids
-        download_and_export_data(station_id, file_df.file_name)
-    end
+    map(x->download_and_export_data(x, file_df.file_name), station_ids; ntasks = 5)
 end
 
 
