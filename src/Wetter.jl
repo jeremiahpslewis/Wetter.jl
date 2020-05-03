@@ -74,10 +74,8 @@ function covert_csv_to_dataframe(file_name)
     global z = ZipFile.Reader(file_name) # Declare as global variable to avoid bug: https://github.com/fhs/ZipFile.jl/issues/14
     txt_file = filter(x->endswith(x.name, ".txt"), z.files)[1]
 
-    df = CSV.File(txt_file, delim = ";", missingstrings = ["-999"], types = Dict(2 => String), normalizenames = true) |> DataFrame!
-
+    df = CSV.File(txt_file, delim = ";", missingstrings = ["-999"], types = Dict(2 => String), normalizenames = true, select = [:STATIONS_ID, :QN, :TT_10, :MESS_DATUM]) |> DataFrame!
     close(z)
-
 
     function todate(date_ex)
         date = DateTime(String(date_ex), date_format)
@@ -111,13 +109,13 @@ end
 
 
 function download_and_export_data(station_id, file_list)
-    tmp_dir_path = mktempdir(parent = tempdir(); prefix = "jl_", cleanup = true)
+    tmp_dir_path = mktempdir(tempdir(); prefix = "jl_", cleanup = true)
     # remove raw data directory (zip dir...)
+    file_list = filter(x->occursin("_TU_" * station_id, x), file_list)
+
     download_data_file.(file_list, (tmp_dir_path,))
     # Import File as Data Table
-    file_list = readdir(tmp_dir_path)
-    file_list = filter(x->occursin("_TU_" * station_id, x), file_list)
-    file_list = tmp_dir_path .* file_list
+    file_list = readdir(tmp_dir_path, join = true)
     df_list = covert_csv_to_dataframe.(file_list)
     df_full = vcat(df_list...)
 
@@ -132,11 +130,6 @@ end
 function download_and_export_data()
 
     # Download Data
-    file_list = fetch_data_file_list()
-
-    rm("data/csv", recursive = true, force = true)
-    mkdir("data/csv")
-
     file_list = fetch_data_file_list()
 
     file_df = DataFrame(file_name = file_list, station_id = get_station_id.(file_list))
