@@ -30,12 +30,18 @@ using CodecZlib
 const date_format = Dates.DateFormat("yyyymmddHHMM:00:000")
 
 
+
 function write_df_to_gzip_csv(df, filename)
     open(GzipCompressorStream, filename, "w") do stream
         CSV.write(stream, df)
     end
 end
 
+
+
+function read_df_from_gzip_csv(filename)
+    return CSV.read(GzipDecompressorStream(open(filename)))
+end
 
 function get_station_id(file_name)
     m = match(r"10minutenwerte_TU_([0-9]+)_.*", file_name)
@@ -97,12 +103,7 @@ function covert_csv_to_dataframe(file_name)
             end
         end
 
-        # Return timestamp or "NA"-string
-        if ismissing(date)
-            return "NA"
-        else
-            return Dates.format(date, "yyyy-mm-dd HH:MM")
-        end
+        return date
     end
 
     df[!, :obs_date_utc] = todate.(df[!, :MESS_DATUM])
@@ -122,9 +123,9 @@ function download_and_export_data(station_id, file_list)
     file_list = readdir(tmp_dir_path, join = true)
     df_list = covert_csv_to_dataframe.(file_list)
     df_full = vcat(df_list...)
-
+    # TODO: Sort rows by timestamp
     # Test that the number of NA vals is less than 0.1%
-    @assert mean(df_full.obs_date_utc .== "NA") < 0.001
+    @assert mean(ismissing(df_full.obs_date_utc)) < 0.001
     mkpath("data/csv")
     write_df_to_gzip_csv(df_full, "data/csv/station_id_" * String(station_id) * ".csv.gz")
     rm(tmp_dir_path, recursive = true, force = true)
@@ -138,9 +139,32 @@ function download_and_export_data()
 
     station_ids = unique(file_df.station_id)
 
+    # Filter Berlin Tegel...
+    # station_ids = filter(x->x == "00430", station_ids)
     # station_ids = station_ids[1:3]
     map(x->download_and_export_data(x, file_df.file_name), station_ids)
 end
 
 
 download_and_export_data()
+
+
+using VegaLite
+using FilePaths
+using DataFramesMeta
+
+
+file_list = readdir("data/csv", join = true)
+file_list = filter(x->occursin("_00430", x), file_list)
+df = read_df_from_gzip_csv(file_list[1])
+
+Time(df[1, :obs_date_utc]) |> typeof
+df_time_trends = @linq df |>
+    where(.!ismissing.(:tt_10) .& .!ismissing.(:obs_date_utc)) |>
+    transform(obs_time = Time.(:obs_date_utc), obs_year = year.(:obs_date_utc), obs_quarter_of_year = quarterofyear.(:obs_date_utc)) |>
+    transform(obs_5_year = fld.(:obs_year, 5) * 5) |>
+    by([:obs_time, :obs_5_year, :obs_quarter_of_year, :station_id], mean_tt_10 = median(:tt_10)) |>
+    orderby(:obs_time, :obs_quarter_of_year) |>
+    select(:station_id, :obs_quarter_of_year, obs_time_str = Dates.format.(:obs_time, "HH:MM"), :mean_tt_10, :obs_5_year)
+
+df_time_trends |> @vlplot(:line, x = "obs_time_str:O", y = :mean_tt_10, color = "obs_5_year:N", row = "obs_quarter_of_year:O")
