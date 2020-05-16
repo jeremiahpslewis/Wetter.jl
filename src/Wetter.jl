@@ -146,7 +146,7 @@ function download_and_export_data()
 end
 
 
-download_and_export_data()
+# download_and_export_data()
 
 
 using VegaLite
@@ -158,13 +158,65 @@ file_list = readdir("data/csv", join = true)
 file_list = filter(x->occursin("_00430", x), file_list)
 df = read_df_from_gzip_csv(file_list[1])
 
-Time(df[1, :obs_date_utc]) |> typeof
+
+# inspect number of data points per cell, decide on how to handle missing data...
 df_time_trends = @linq df |>
     where(.!ismissing.(:tt_10) .& .!ismissing.(:obs_date_utc)) |>
-    transform(obs_time = Time.(:obs_date_utc), obs_year = year.(:obs_date_utc), obs_quarter_of_year = quarterofyear.(:obs_date_utc)) |>
+    transform(obs_time = Time.(:obs_date_utc), obs_year = year.(:obs_date_utc), obs_month = month.(:obs_date_utc)) |>
     transform(obs_5_year = fld.(:obs_year, 5) * 5) |>
-    by([:obs_time, :obs_5_year, :obs_quarter_of_year, :station_id], mean_tt_10 = median(:tt_10)) |>
-    orderby(:obs_time, :obs_quarter_of_year) |>
-    select(:station_id, :obs_quarter_of_year, obs_time_str = Dates.format.(:obs_time, "HH:MM"), :mean_tt_10, :obs_5_year)
+    where(:obs_time .>= Time("20:00")) |>
+    where((:obs_month .>= 6) .& (:obs_month .< 9)) |>
+    by([:obs_time, :obs_5_year, :station_id],
+        median_tt_10 = median(:tt_10),
+        q_25_tt_10 = quantile(:tt_10, 0.25),
+        q_75_tt_10 = quantile(:tt_10, 0.75),
+        pct_days_over_20_c = mean(:tt_10 .> 20),
+        pct_days_over_25_c = mean(:tt_10 .> 25),
+        pct_days_over_30_c = mean(:tt_10 .> 30)) |>
+    orderby(:obs_time, :obs_5_year) |>
+    select(:station_id,
+        obs_time_str = Dates.format.(:obs_time, "HH:MM"),
+        :median_tt_10,
+        :q_25_tt_10,
+        :q_75_tt_10,
+        :obs_5_year,
+        :pct_days_over_20_c,
+        :pct_days_over_25_c,
+        :pct_days_over_30_c)
 
-df_time_trends |> @vlplot(:line, x = "obs_time_str:O", y = :mean_tt_10, color = "obs_5_year:N", row = "obs_quarter_of_year:O")
+df_time_trends = DataFrames.stack(df_time_trends,
+        [:pct_days_over_20_c,
+        :pct_days_over_25_c,
+        :pct_days_over_30_c])
+
+df_time_trends |> @with @where(:variable == "pct_days_over_20_c") |>
+    @vlplot(
+        title = {text = "Berlin Climate Trends: Summer Nightime Temperatures (June - August)"},
+        mark = {:line},
+        x = {"obs_time_str:O", title = "Time of Day"},
+        y = {"value:q", axis = {format = "%"}},
+        color = "obs_5_year:N")
+
+# [1,2] .∈ [1,2]660-14.43
+
+# show in absolute terms, difference in number of days per quarter in 1995 vs 2015
+
+
+
+# inspect number of data points per cell, decide on how to handle missing data...
+df_annual_trends = @linq df |>
+    where(.!ismissing.(:tt_10) .& .!ismissing.(:obs_date_utc)) |>
+    transform(obs_time = Time.(:obs_date_utc), obs_year = year.(:obs_date_utc), obs_day_of_year = dayofyear.(:obs_date_utc), obs_month = month.(:obs_date_utc)) |>
+    transform(obs_5_year = fld.(:obs_year, 5) * 5) |>
+    where((:obs_time .> Time("20:00"))) |>
+    by([:obs_day_of_year, :station_id, :obs_month], median_tt_10 = median(:tt_10), q_25_tt_10 = quantile(:tt_10, 0.25), q_75_tt_10 = quantile(:tt_10, 0.75), pct_days_over_20_c = mean(:tt_10 .> 20)) |>
+    orderby(:obs_day_of_year) |>
+    select(:station_id, :obs_day_of_year, :obs_month, :median_tt_10, :q_25_tt_10, :q_75_tt_10, :pct_days_over_20_c)
+
+df_annual_trends |>
+    @vlplot(
+        title = {text = "Berlin Climate Trends: Nightime Temperatures"},
+        mark = {:line},
+        x = {"obs_day_of_year", title = "Day of Year"},
+        y = {"median_tt_10:q"},
+        column = "obs_month:O")
