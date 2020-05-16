@@ -1,6 +1,6 @@
 * Add plot title
 * Fix scales so percent is displayed
-* Fix levels so they are displayed as date ranges
-* start x at 9 pm
 * add rough uncertainty intervals?
 * display quarters as date ranges...
+* color palette for lines...
+* add data source attribution!!

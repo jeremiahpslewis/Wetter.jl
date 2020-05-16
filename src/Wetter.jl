@@ -159,51 +159,8 @@ file_list = filter(x->occursin("_00430", x), file_list)
 df = read_df_from_gzip_csv(file_list[1])
 
 
-# inspect number of data points per cell, decide on how to handle missing data...
-df_time_trends = @linq df |>
-    where(.!ismissing.(:tt_10) .& .!ismissing.(:obs_date_utc)) |>
-    transform(obs_time = Time.(:obs_date_utc), obs_year = year.(:obs_date_utc), obs_month = month.(:obs_date_utc)) |>
-    transform(obs_5_year = fld.(:obs_year, 5) * 5) |>
-    where(:obs_time .>= Time("20:00")) |>
-    where((:obs_month .>= 6) .& (:obs_month .< 9)) |>
-    by([:obs_time, :obs_5_year, :station_id],
-        median_tt_10 = median(:tt_10),
-        q_25_tt_10 = quantile(:tt_10, 0.25),
-        q_75_tt_10 = quantile(:tt_10, 0.75),
-        pct_days_over_20_c = mean(:tt_10 .> 20),
-        pct_days_over_25_c = mean(:tt_10 .> 25),
-        pct_days_over_30_c = mean(:tt_10 .> 30)) |>
-    orderby(:obs_time, :obs_5_year) |>
-    select(:station_id,
-        obs_time_str = Dates.format.(:obs_time, "HH:MM"),
-        :median_tt_10,
-        :q_25_tt_10,
-        :q_75_tt_10,
-        :obs_5_year,
-        :pct_days_over_20_c,
-        :pct_days_over_25_c,
-        :pct_days_over_30_c)
 
-df_time_trends = DataFrames.stack(df_time_trends,
-        [:pct_days_over_20_c,
-        :pct_days_over_25_c,
-        :pct_days_over_30_c])
-
-df_time_trends |> @with @where(:variable == "pct_days_over_20_c") |>
-    @vlplot(
-        title = {text = "Berlin Climate Trends: Summer Nightime Temperatures (June - August)"},
-        mark = {:line},
-        x = {"obs_time_str:O", title = "Time of Day"},
-        y = {"value:q", axis = {format = "%"}},
-        color = "obs_5_year:N")
-
-# [1,2] .∈ [1,2]660-14.43
-
-# show in absolute terms, difference in number of days per quarter in 1995 vs 2015
-
-
-
-# inspect number of data points per cell, decide on how to handle missing data...
+# TODO: inspect number of data points per cell, decide on how to handle missing data...
 df_annual_trends = @linq df |>
     where(.!ismissing.(:tt_10) .& .!ismissing.(:obs_date_utc)) |>
     transform(obs_time = Time.(:obs_date_utc), obs_year = year.(:obs_date_utc), obs_day_of_year = dayofyear.(:obs_date_utc), obs_month = month.(:obs_date_utc)) |>
@@ -220,3 +177,47 @@ df_annual_trends |>
         x = {"obs_day_of_year", title = "Day of Year"},
         y = {"median_tt_10:q"},
         column = "obs_month:O")
+
+
+# TODO: inspect number of data points per cell, decide on how to handle missing data...
+df_time_trends = @linq df |>
+    where(.!ismissing.(:obs_date_utc)) |>
+    # NOTE: To ensure CET time is displayed independent of browser timezone, time data is specified as UTC, but preconverted to CET
+    # Warining: this hack probably fails for dates near daylight savings clock change.
+    transform(obs_time_cet = Time.(Dates.format.(astimezone.(ZonedDateTime.(:obs_date_utc, FixedTimeZone("UTC")), tz"Europe/Berlin"), "HH:MM")),
+        obs_year = year.(:obs_date_utc),
+        obs_month = month.(:obs_date_utc)) |>
+    transform(obs_5_year = fld.(:obs_year, 5) * 5) |>
+    where(:obs_time_cet .>= Time("20:00"), :obs_month .>= 6, :obs_month .< 9, .!ismissing.(:tt_10)) |>
+    by([:obs_time_cet, :obs_5_year, :station_id],
+        median_tt_10 = median(:tt_10),
+        q_25_tt_10 = quantile(:tt_10, 0.25),
+        q_75_tt_10 = quantile(:tt_10, 0.75),
+        pct_days_over_20_c = mean(:tt_10 .> 20),
+        pct_days_over_25_c = mean(:tt_10 .> 25),
+        pct_days_over_30_c = mean(:tt_10 .> 30)) |>
+    orderby(:obs_time_cet, :obs_5_year) |>
+    select(:station_id,
+        obs_time_cet_as_utc_str = Dates.format(:obs_time_cet, "2000-01-01THH:MM:00") .* "Z",
+        :median_tt_10,
+        :q_25_tt_10,
+        :q_75_tt_10,
+        obs_5_year = string.(:obs_5_year, "—", :obs_5_year .+ 4),
+        :pct_days_over_20_c,
+        :pct_days_over_25_c,
+        :pct_days_over_30_c)
+
+df_time_trends = DataFrames.stack(df_time_trends,
+        [:pct_days_over_20_c,
+        :pct_days_over_25_c,
+        :pct_days_over_30_c])
+
+@where(df_time_trends, :variable .== Symbol("pct_days_over_20_c")) |>
+    @vlplot(
+        title = {text = "Berlin Summer Nightime Temperatures", subtitle = "(June — August)"},
+        mark = {:line},
+        x = {"obs_time_utc_str:T", timeUnit = "utchoursminutes", title = "Time of Day (CET)", axis = {tickCount = 4}},
+        y = {"value:q", axis = {format = "%", tickCount = 10, labelExpr = "(datum.value * 100) % 10 ? null : datum.label"}, title = "Days over 20°C"},
+        color = {"obs_5_year:N", title = "", scale = {scheme = "magma"}})
+
+# show in absolute terms, difference in number of days per quarter in 1995 vs 2015
