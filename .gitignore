@@ -33,3 +33,5 @@ Manifest.toml
 *.csv
 *.gz
 *.txt
+*.pdf
+*.png

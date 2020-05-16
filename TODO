@@ -1,6 +1,5 @@
-* Add plot title
-* Fix scales so percent is displayed
-* add rough uncertainty intervals?
-* display quarters as date ranges...
-* color palette for lines...
+* add label q1 / q3 to rough uncertainty intervals?
 * add data source attribution!!
+* add trend vis a vis change in percentage points vs all time levels...
+* duplicate viz for each weather station, get station names, etc.
+* Fontconfig error: Cannot load default config file

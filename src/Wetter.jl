@@ -189,7 +189,7 @@ df_time_trends = @linq df |>
         obs_month = month.(:obs_date_utc)) |>
     transform(obs_5_year = fld.(:obs_year, 5) * 5) |>
     where(:obs_time_cet .>= Time("20:00"), :obs_month .>= 6, :obs_month .< 9, .!ismissing.(:tt_10)) |>
-    by([:obs_time_cet, :obs_5_year, :station_id],
+    by([:obs_time_cet, :obs_5_year, :station_id, :obs_year],
         median_tt_10 = median(:tt_10),
         q_25_tt_10 = quantile(:tt_10, 0.25),
         q_75_tt_10 = quantile(:tt_10, 0.75),
@@ -198,8 +198,9 @@ df_time_trends = @linq df |>
         pct_days_over_30_c = mean(:tt_10 .> 30)) |>
     orderby(:obs_time_cet, :obs_5_year) |>
     select(:station_id,
-        obs_time_cet_as_utc_str = Dates.format(:obs_time_cet, "2000-01-01THH:MM:00") .* "Z",
+        obs_time_cet_as_utc_str = Dates.format.(:obs_time_cet, "2000-01-01THH:MM:00") .* "Z",
         :median_tt_10,
+        :obs_year,
         :q_25_tt_10,
         :q_75_tt_10,
         obs_5_year = string.(:obs_5_year, "—", :obs_5_year .+ 4),
@@ -212,12 +213,37 @@ df_time_trends = DataFrames.stack(df_time_trends,
         :pct_days_over_25_c,
         :pct_days_over_30_c])
 
-@where(df_time_trends, :variable .== Symbol("pct_days_over_20_c")) |>
+p = @where(df_time_trends, :variable .== Symbol("pct_days_over_20_c")) |>
     @vlplot(
+        width = 1000,
+        height = 1000,
         title = {text = "Berlin Summer Nightime Temperatures", subtitle = "(June — August)"},
-        mark = {:line},
-        x = {"obs_time_utc_str:T", timeUnit = "utchoursminutes", title = "Time of Day (CET)", axis = {tickCount = 4}},
-        y = {"value:q", axis = {format = "%", tickCount = 10, labelExpr = "(datum.value * 100) % 10 ? null : datum.label"}, title = "Days over 20°C"},
-        color = {"obs_5_year:N", title = "", scale = {scheme = "magma"}})
-
+        layer = [
+        {
+            mark = {:area, opacity = 0.15},
+            x = {"obs_time_cet_as_utc_str:T", timeUnit = "utchoursminutes", title = "Time of Day (CET)", axis = {tickCount = 4}},
+            y = {"q1(value):q", scale = {domain = [0, 1]}, axis = {format = "%", tickCount = 20, labelExpr = "(datum.value * 100) % 10 ? null : datum.label"}, title = "Days over 20°C"},
+            y2 = {"q3(value):q", scale = {domain = [0, 1]}, axis = {format = "%", tickCount = 20, labelExpr = "(datum.value * 100) % 10 ? null : datum.label"}, title = "Days over 20°C"},
+            # tooltip = {"obs_5_year"},
+            color = {"obs_5_year:N", title = "", scale = {scheme = "magma"}}
+        },
+        {
+            mark = {:line, opacity = 1},
+            x = {"obs_time_cet_as_utc_str:T", timeUnit = "utchoursminutes", title = "Time of Day (CET)", axis = {tickCount = 4}},
+            y = {"median(value):q", scale = {domain = [0, 1]}, axis = {format = "%", tickCount = 20, labelExpr = "(datum.value * 100) % 10 ? null : datum.label"}, title = "Days over 20°C"},
+            color = {"obs_5_year:N", title = "", scale = {scheme = "magma"}}
+        },
+        {
+            mark = {:point, opacity = 0.2},
+            x = {"obs_time_cet_as_utc_str:T", timeUnit = "utchoursminutes", title = "Time of Day (CET)", axis = {tickCount = 4}},
+            y = {"value:q", scale = {domain = [0, 1]}, axis = {format = "%", tickCount = 20, labelExpr = "(datum.value * 100) % 10 ? null : datum.label"}, title = "Days over 20°C"},
+            tooltip = {"obs_year"},
+            color = {"obs_5_year:N", title = "", scale = {scheme = "magma"}}
+        }
+        ]
+)
 # show in absolute terms, difference in number of days per quarter in 1995 vs 2015
+# jsave("figure.png", p)
+
+
+# https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/10_minutes/air_temperature/historical/zehn_min_tu_Beschreibung_Stationen.txt
